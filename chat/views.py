@@ -8,8 +8,10 @@ from .serializers import MessageSerializer
 # Create your views here.
 @api_view(['POST'])
 def echo_message(request):
-    content = request.data.get('content')
-    message = Message(content=content)
+    content: str = request.data.get('content')
+    message = Message(content=content, message_type='user')
+    message.save()
+    message = Message(content=content, message_type='bot')
     message.save()
     serializer = MessageSerializer(message)
     return Response(serializer.data)
