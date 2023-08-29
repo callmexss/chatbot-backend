@@ -20,6 +20,7 @@ def echo_message(request):
 
 
 assistant = basev2.Assistant()
+assistant = basev2.ChatAssistant()
 
 
 def save_and_yield_original(gen):
@@ -27,18 +28,21 @@ def save_and_yield_original(gen):
     for item in gen:
         saved.append(item)
         yield item
-    message_bot = Message(content=''.join(saved), message_type='bot')
+    message = ''.join(saved)
+    message_bot = Message(content=message, message_type='bot')
     message_bot.save()
+    assistant.q.append(assistant.build_assistant_message(message))
 
 
 @api_view(['POST'])
 def openai_message(request):
     content: str = request.data.get('content')
+    assistant.q.append(assistant.build_user_message(content))
     message = Message(content=content, message_type='user')
     message.save()
 
     params = basev2.CompletionParameters(stream=True)
-    chat_completion = assistant.ask(content, params=params)
+    chat_completion = assistant.ask(assistant.q, params=params)
     new_gen = save_and_yield_original(basev2.get_chunks(chat_completion))
 
     response = StreamingHttpResponse(
@@ -47,4 +51,3 @@ def openai_message(request):
     )
 
     return response
-
