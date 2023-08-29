@@ -63,4 +63,5 @@ def echo_message(request):
 @api_view(['POST'])
 def openai_message(request):
     content: str = request.data.get('content')
-    return chat_manager.openai_reply(content)
+    system_prompt: str = request.data.get('system_prompt', '')
+    return chat_manager.openai_reply(content, system_prompt=system_prompt)
