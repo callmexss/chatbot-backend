@@ -14,3 +14,11 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.message_type}: {self.content[:50]}"
+
+
+class SystemPrompt(models.Model):
+    name = models.CharField(max_length=100)
+    content = models.TextField(max_length=4000)
+
+    def __str__(self):
+        return self.name

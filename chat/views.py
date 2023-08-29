@@ -2,9 +2,10 @@ from django.http import StreamingHttpResponse
 from gptbase import basev2
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import viewsets
 
-from .models import Message
-from .serializers import MessageSerializer
+from .models import Message, SystemPrompt
+from .serializers import MessageSerializer, SystemPromptSerializer
 
 
 class ChatManager:
@@ -65,3 +66,8 @@ def openai_message(request):
     content: str = request.data.get('content')
     system_prompt: str = request.data.get('system_prompt', '')
     return chat_manager.openai_reply(content, system_prompt=system_prompt)
+
+
+class SystemPromptViewSet(viewsets.ModelViewSet):
+    queryset = SystemPrompt.objects.all().order_by('name')
+    serializer_class = SystemPromptSerializer
