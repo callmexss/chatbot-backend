@@ -24,9 +24,10 @@ class ChatManager:
         print("initialize chat assistant")
         start_idx = max(0, len(messages) - max_len)
         for message in messages[start_idx:]:
+            role = 'user' if message.message_type == 'user' else 'assistant'
             self.assistant.q.append(
                 self.assistant.build_message(
-                    role=message.message_type,
+                    role=role,
                     message=message.content
                 )
             )
