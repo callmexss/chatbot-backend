@@ -2,7 +2,7 @@ from django.http import StreamingHttpResponse
 from gptbase import basev2
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 
 from .models import Message, SystemPrompt, Conversation
 from .serializers import (
@@ -15,6 +15,22 @@ from .serializers import (
 class ChatManager:
     def __init__(self):
         self.assistant = basev2.ChatAssistant()
+
+    def initialize_conversation(self, conversation_id):
+        conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
+        messages = conversation.messages.all().order_by('timestamp')
+        max_len = self.assistant.q.maxlen
+        self.assistant.q.clear()
+        print("initialize chat assistant")
+        start_idx = max(0, len(messages) - max_len)
+        for message in messages[start_idx:]:
+            self.assistant.q.append(
+                self.assistant.build_message(
+                    role=message.message_type,
+                    message=message.content
+                )
+            )
+        print(self.assistant.q)
 
     @staticmethod
     def save_message(content, message_type, conversation):
@@ -82,6 +98,7 @@ def openai_message(request):
 
 @api_view(['GET'])
 def get_conversation_messages(request, conversation_id):
+    chat_manager.initialize_conversation(conversation_id)
     messages = Message.objects.filter(
         conversation_id=conversation_id
     ).order_by('timestamp')
@@ -97,3 +114,10 @@ class SystemPromptViewSet(viewsets.ModelViewSet):
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all().order_by('-created_at')
     serializer_class = ConversationSerializer
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            new_conversation = Conversation.objects.get(id=response.data["id"])
+            chat_manager.initialize_conversation(new_conversation.id)
+        return response
