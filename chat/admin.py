@@ -12,9 +12,9 @@ class SessionAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ['session', 'content', 'message_type', 'timestamp']
+    list_display = ['conversation', 'content', 'message_type', 'timestamp']
     search_fields = ['content']
-    list_filter = ['message_type', 'session']
+    list_filter = ['message_type', 'conversation']
     ordering = ['-timestamp']
 
 

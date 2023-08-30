@@ -17,29 +17,32 @@ class ChatManager:
         self.assistant = basev2.ChatAssistant()
 
     @staticmethod
-    def save_message(content, message_type):
-        message = Message(content=content, message_type=message_type)
+    def save_message(content, message_type, conversation):
+        message = Message(
+            content=content, message_type=message_type, conversation=conversation
+        )
         message.save()
         return message
 
-    def save_and_yield_original(self, gen):
+    def save_and_yield_original(self, gen, conversation):
         saved = []
         for item in gen:
             saved.append(item)
             yield item
         message = ''.join(saved)
-        self.save_message(message, 'bot')
+        self.save_message(message, 'bot', conversation)
         self.assistant.q.append(self.assistant.build_assistant_message(message))
 
     def echo_reply(self, content):
-        message = self.save_message(content, 'user')
-        message = self.save_message(content, 'bot')
+        conversation, _ = Conversation.objects.get_or_create(name="test chat")
+        message = self.save_message(content, 'user', conversation)
+        message = self.save_message(content, 'bot', conversation)
         serializer = MessageSerializer(message)
         return Response(serializer.data)
 
-    def openai_reply(self, content, system_prompt=''):
+    def openai_reply(self, content, conversation, system_prompt=''):
         self.assistant.q.append(self.assistant.build_user_message(content))
-        self.save_message(content, 'user')
+        self.save_message(content, 'user', conversation)
 
         completion_params = basev2.CompletionParameters(stream=True)
         chat_completion = self.assistant.ask(
@@ -48,7 +51,9 @@ class ChatManager:
             params=completion_params
         )
         
-        new_gen = self.save_and_yield_original(basev2.get_chunks(chat_completion))
+        new_gen = self.save_and_yield_original(
+            basev2.get_chunks(chat_completion), conversation
+        )
 
         return StreamingHttpResponse(
             (chunk for chunk in new_gen),
@@ -69,7 +74,9 @@ def echo_message(request):
 def openai_message(request):
     content: str = request.data.get('content')
     system_prompt: str = request.data.get('system_prompt', '')
-    return chat_manager.openai_reply(content, system_prompt=system_prompt)
+    conversation_id = request.data.get('conversation_id')
+    conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
+    return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
 
 class SystemPromptViewSet(viewsets.ModelViewSet):

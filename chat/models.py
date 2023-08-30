@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 
 class Conversation(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -16,7 +16,7 @@ class Message(models.Model):
         ('bot', 'Bot'),
     ]
 
-    session = models.ForeignKey(
+    conversation = models.ForeignKey(
         Conversation, on_delete=models.CASCADE, related_name='messages'
     )
     content = models.TextField()

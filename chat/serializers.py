@@ -4,7 +4,7 @@ from .models import Message, SystemPrompt, Conversation
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = ['content', 'timestamp']
+        fields = ['id', 'conversation', 'content', 'message_type', 'timestamp']
 
 
 class SystemPromptSerializer(serializers.ModelSerializer):
