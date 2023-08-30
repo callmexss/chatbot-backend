@@ -2,7 +2,7 @@ from django.db import models
 
 # Create your models here.
 
-class Session(models.Model):
+class Conversation(models.Model):
     name = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -17,7 +17,7 @@ class Message(models.Model):
     ]
 
     session = models.ForeignKey(
-        Session, on_delete=models.CASCADE, related_name='messages'
+        Conversation, on_delete=models.CASCADE, related_name='messages'
     )
     content = models.TextField()
     message_type = models.CharField(max_length=4, choices=TYPE_CHOICES)
