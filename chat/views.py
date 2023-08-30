@@ -4,8 +4,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
 
-from .models import Message, SystemPrompt
-from .serializers import MessageSerializer, SystemPromptSerializer
+from .models import Message, SystemPrompt, Conversation
+from .serializers import (
+    MessageSerializer,
+    SystemPromptSerializer,
+    ConversationSerializer,
+)
 
 
 class ChatManager:
@@ -71,3 +75,8 @@ def openai_message(request):
 class SystemPromptViewSet(viewsets.ModelViewSet):
     queryset = SystemPrompt.objects.all().order_by('name')
     serializer_class = SystemPromptSerializer
+
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    queryset = Conversation.objects.all().order_by('-created_at')
+    serializer_class = ConversationSerializer

@@ -2,13 +2,15 @@ from django.urls import path, include
 from .views import (
     echo_message,
     openai_message,
-    SystemPromptViewSet
+    SystemPromptViewSet,
+    ConversationViewSet,
 )
 
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'system-prompts', SystemPromptViewSet)
+router.register(r'conversations', ConversationViewSet)
 
 
 urlpatterns = [

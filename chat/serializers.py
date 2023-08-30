@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, SystemPrompt
+from .models import Message, SystemPrompt, Conversation
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,3 +11,9 @@ class SystemPromptSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemPrompt
         fields = ['id', 'name', 'content']
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Conversation
+        fields = ['id', 'name', 'created_at']
