@@ -80,6 +80,15 @@ def openai_message(request):
     return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
 
+@api_view(['GET'])
+def get_conversation_messages(request, conversation_id):
+    messages = Message.objects.filter(
+        conversation_id=conversation_id
+    ).order_by('timestamp')
+    serializer = MessageSerializer(messages, many=True)
+    return Response(serializer.data)
+
+
 class SystemPromptViewSet(viewsets.ModelViewSet):
     queryset = SystemPrompt.objects.all().order_by('name')
     serializer_class = SystemPromptSerializer
