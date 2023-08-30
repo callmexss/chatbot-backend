@@ -61,6 +61,7 @@ class ChatManager:
         )
 
 
+DEFAULT_CONVERSATION_ID = 1
 chat_manager = ChatManager()
 
 
@@ -74,7 +75,7 @@ def echo_message(request):
 def openai_message(request):
     content: str = request.data.get('content')
     system_prompt: str = request.data.get('system_prompt', '')
-    conversation_id = request.data.get('conversation_id')
+    conversation_id = request.data.get('conversation_id', DEFAULT_CONVERSATION_ID)
     conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
     return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
