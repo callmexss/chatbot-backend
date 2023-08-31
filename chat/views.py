@@ -43,6 +43,7 @@ class ChatManager:
 
     def save_and_yield_original(self, gen, conversation):
         saved = []
+        yield f"{conversation.id}|||".encode()
         for item in gen:
             saved.append(item)
             yield item
