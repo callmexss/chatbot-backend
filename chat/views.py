@@ -50,6 +50,24 @@ class ChatManager:
         self.save_message(message, 'bot', conversation)
         self.assistant.q.append(self.assistant.build_assistant_message(message))
 
+    def create_and_name_conversation(self, first_sentence):
+        system_prompt = (
+            "ChatGPT, generate a short name for a new "
+            "conversation based on the following sentence. "
+            "The name should not be more than 10 words."
+        )
+        completion_params = basev2.CompletionParameters()
+        response = self.assistant.ask(
+            [self.assistant.build_user_message(first_sentence)],
+            system_prompt=system_prompt,
+            params=completion_params,
+        )
+        generated_name = basev2.get_message(response)
+        
+        new_conversation = Conversation.objects.create(name=generated_name)
+        self.initialize_conversation(new_conversation.id)
+        return new_conversation
+
     def echo_reply(self, content):
         conversation, _ = Conversation.objects.get_or_create(name="test chat")
         message = self.save_message(content, 'user', conversation)
@@ -80,6 +98,7 @@ class ChatManager:
 
 DEFAULT_CONVERSATION_ID = 1
 chat_manager = ChatManager()
+conversation_name_manager = ChatManager()
 
 
 @api_view(['POST'])
@@ -92,8 +111,13 @@ def echo_message(request):
 def openai_message(request):
     content: str = request.data.get('content')
     system_prompt: str = request.data.get('system_prompt', '')
-    conversation_id = request.data.get('conversation_id', DEFAULT_CONVERSATION_ID)
-    conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
+    conversation_id = request.data.get('conversation_id')
+
+    try:
+        conversation =  Conversation.objects.get(id=conversation_id)
+    except Conversation.DoesNotExist:
+        conversation = conversation_name_manager.create_and_name_conversation(content)
+
     return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
 
