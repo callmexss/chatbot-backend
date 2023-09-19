@@ -15,12 +15,12 @@ router.register(r"conversations", ConversationViewSet)
 
 
 urlpatterns = [
-    path("echo/", echo_message, name="echo_message"),
-    path("openai/", openai_message, name="openai_message"),
+    path("v1/chat/echo/", echo_message, name="echo_message"),
+    path("v1/chat/openai/", openai_message, name="openai_message"),
     path(
-        "conversations/<int:conversation_id>/messages/",
+        "v1/chat/conversations/<int:conversation_id>/messages/",
         get_conversation_messages,
         name="conversation_messages",
     ),
-    path("", include(router.urls)),
+    path("v1/chat/", include(router.urls)),
 ]

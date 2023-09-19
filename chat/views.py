@@ -1,8 +1,14 @@
 from django.http import StreamingHttpResponse
 from gptbase import basev2
 from rest_framework import status, viewsets
-from rest_framework.decorators import api_view
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import Conversation, Message, SystemPrompt
 from .serializers import (
@@ -16,8 +22,10 @@ class ChatManager:
     def __init__(self, memory_turns=14):
         self.assistant = basev2.ChatAssistant(memory_turns=memory_turns)
 
-    def initialize_conversation(self, conversation_id):
-        conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
+    def initialize_conversation(self, conversation_id, user):
+        conversation, _ = Conversation.objects.get_or_create(
+            id=conversation_id, user=user
+        )
         messages = conversation.messages.all().order_by("timestamp")
         max_len = self.assistant.q.maxlen
         self.assistant.q.clear()
@@ -52,7 +60,7 @@ class ChatManager:
         self.save_message(message, "bot", conversation, tokens)
         self.assistant.q.append(self.assistant.build_assistant_message(message))
 
-    def create_and_name_conversation(self, first_sentence):
+    def create_and_name_conversation(self, first_sentence, user):
         system_prompt = (
             "ChatGPT, generate a short name for a new "
             "conversation based on the following sentence. "
@@ -67,7 +75,7 @@ class ChatManager:
         generated_name = basev2.get_message(response)
 
         new_conversation = Conversation.objects.create(name=generated_name)
-        self.initialize_conversation(new_conversation.id)
+        self.initialize_conversation(new_conversation.id, user)
         return new_conversation
 
     def echo_reply(self, content):
@@ -108,7 +116,10 @@ def echo_message(request):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def openai_message(request):
+    user = request.user
     content: str = request.data.get("content")
     system_prompt: str = request.data.get("system_prompt", "")
     conversation_id = request.data.get("conversation_id")
@@ -116,14 +127,19 @@ def openai_message(request):
     try:
         conversation = Conversation.objects.get(id=conversation_id)
     except Conversation.DoesNotExist:
-        conversation = conversation_name_manager.create_and_name_conversation(content)
+        conversation = conversation_name_manager.create_and_name_conversation(
+            content, user
+        )
 
     return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
 
 @api_view(["GET"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def get_conversation_messages(request, conversation_id):
-    chat_manager.initialize_conversation(conversation_id)
+    user = request.user
+    chat_manager.initialize_conversation(conversation_id, user)
     messages = Message.objects.filter(conversation_id=conversation_id).order_by(
         "timestamp"
     )
@@ -141,8 +157,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
 
     def create(self, request, *args, **kwargs):
+        user = request.user
         response = super().create(request, *args, **kwargs)
         if response.status_code == status.HTTP_201_CREATED:
             new_conversation = Conversation.objects.get(id=response.data["id"])
-            chat_manager.initialize_conversation(new_conversation.id)
+            chat_manager.initialize_conversation(new_conversation.id, user)
         return response
