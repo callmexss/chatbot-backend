@@ -74,7 +74,7 @@ class ChatManager:
         )
         generated_name = basev2.get_message(response)
 
-        new_conversation = Conversation.objects.create(name=generated_name)
+        new_conversation = Conversation.objects.create(name=generated_name, user=user)
         self.initialize_conversation(new_conversation.id, user)
         return new_conversation
 
