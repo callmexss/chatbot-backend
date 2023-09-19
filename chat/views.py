@@ -1,54 +1,55 @@
 from django.http import StreamingHttpResponse
 from gptbase import basev2
+from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import viewsets, status
 
-from .models import Message, SystemPrompt, Conversation
+from .models import Conversation, Message, SystemPrompt
 from .serializers import (
+    ConversationSerializer,
     MessageSerializer,
     SystemPromptSerializer,
-    ConversationSerializer,
 )
 
 
 class ChatManager:
-    def __init__(self):
-        self.assistant = basev2.ChatAssistant()
+    def __init__(self, memory_turns=14):
+        self.assistant = basev2.ChatAssistant(memory_turns=memory_turns)
 
     def initialize_conversation(self, conversation_id):
         conversation, _ = Conversation.objects.get_or_create(id=conversation_id)
-        messages = conversation.messages.all().order_by('timestamp')
+        messages = conversation.messages.all().order_by("timestamp")
         max_len = self.assistant.q.maxlen
         self.assistant.q.clear()
         print("initialize chat assistant")
         start_idx = max(0, len(messages) - max_len)
         for message in messages[start_idx:]:
-            role = 'user' if message.message_type == 'user' else 'assistant'
+            role = "user" if message.message_type == "user" else "assistant"
             self.assistant.q.append(
-                self.assistant.build_message(
-                    role=role,
-                    message=message.content
-                )
+                self.assistant.build_message(role=role, message=message.content)
             )
         print(self.assistant.q)
 
     @staticmethod
-    def save_message(content, message_type, conversation):
+    def save_message(content, message_type, conversation, tokens=0):
         message = Message(
-            content=content, message_type=message_type, conversation=conversation
+            content=content,
+            message_type=message_type,
+            conversation=conversation,
+            tokens=tokens,
         )
         message.save()
         return message
 
-    def save_and_yield_original(self, gen, conversation):
+    def save_and_yield_original(self, gen, conversation, model):
         saved = []
         yield f"{conversation.id}|||".encode()
         for item in gen:
             saved.append(item)
             yield item
-        message = ''.join(saved)
-        self.save_message(message, 'bot', conversation)
+        message = "".join(saved)
+        tokens = basev2.count_tokens(message, model)
+        self.save_message(message, "bot", conversation, tokens)
         self.assistant.q.append(self.assistant.build_assistant_message(message))
 
     def create_and_name_conversation(self, first_sentence):
@@ -64,37 +65,35 @@ class ChatManager:
             params=completion_params,
         )
         generated_name = basev2.get_message(response)
-        
+
         new_conversation = Conversation.objects.create(name=generated_name)
         self.initialize_conversation(new_conversation.id)
         return new_conversation
 
     def echo_reply(self, content):
         conversation, _ = Conversation.objects.get_or_create(name="test chat")
-        message = self.save_message(content, 'user', conversation)
-        message = self.save_message(content, 'bot', conversation)
+        message = self.save_message(content, "user", conversation)
+        message = self.save_message(content, "bot", conversation)
         serializer = MessageSerializer(message)
         return Response(serializer.data)
 
-    def openai_reply(self, content, conversation, system_prompt=''):
+    def openai_reply(
+        self, content, conversation, model="gpt-3.5-turbo-0613", system_prompt=""
+    ):
         self.assistant.q.append(self.assistant.build_user_message(content))
-        self.save_message(content, 'user', conversation)
+        tokens = basev2.num_tokens_from_messages(self.assistant.q, model)
+        self.save_message(content, "user", conversation, tokens)
 
-        completion_params = basev2.CompletionParameters(stream=True)
+        completion_params = basev2.CompletionParameters(stream=True, model=model)
         chat_completion = self.assistant.ask(
-            self.assistant.q,
-            system_prompt=system_prompt,
-            params=completion_params
-        )
-        
-        new_gen = self.save_and_yield_original(
-            basev2.get_chunks(chat_completion), conversation
+            self.assistant.q, system_prompt=system_prompt, params=completion_params
         )
 
-        return StreamingHttpResponse(
-            (chunk for chunk in new_gen),
-            content_type="text/plain"
+        new_gen = self.save_and_yield_original(
+            basev2.get_chunks(chat_completion), conversation, model
         )
+
+        return StreamingHttpResponse(new_gen, content_type="text/plain")
 
 
 DEFAULT_CONVERSATION_ID = 1
@@ -102,43 +101,43 @@ chat_manager = ChatManager()
 conversation_name_manager = ChatManager()
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 def echo_message(request):
-    content: str = request.data.get('content')
+    content: str = request.data.get("content")
     return chat_manager.echo_reply(content)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 def openai_message(request):
-    content: str = request.data.get('content')
-    system_prompt: str = request.data.get('system_prompt', '')
-    conversation_id = request.data.get('conversation_id')
+    content: str = request.data.get("content")
+    system_prompt: str = request.data.get("system_prompt", "")
+    conversation_id = request.data.get("conversation_id")
 
     try:
-        conversation =  Conversation.objects.get(id=conversation_id)
+        conversation = Conversation.objects.get(id=conversation_id)
     except Conversation.DoesNotExist:
         conversation = conversation_name_manager.create_and_name_conversation(content)
 
     return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def get_conversation_messages(request, conversation_id):
     chat_manager.initialize_conversation(conversation_id)
-    messages = Message.objects.filter(
-        conversation_id=conversation_id
-    ).order_by('timestamp')
+    messages = Message.objects.filter(conversation_id=conversation_id).order_by(
+        "timestamp"
+    )
     serializer = MessageSerializer(messages, many=True)
     return Response(serializer.data)
 
 
 class SystemPromptViewSet(viewsets.ModelViewSet):
-    queryset = SystemPrompt.objects.all().order_by('name')
+    queryset = SystemPrompt.objects.all().order_by("name")
     serializer_class = SystemPromptSerializer
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
-    queryset = Conversation.objects.all().order_by('-created_at')
+    queryset = Conversation.objects.all().order_by("-created_at")
     serializer_class = ConversationSerializer
 
     def create(self, request, *args, **kwargs):

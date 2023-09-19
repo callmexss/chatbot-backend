@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('chat', '0007_alter_message_session'),
+        ("chat", "0007_alter_message_session"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='Session',
-            new_name='Conversation',
+            old_name="Session",
+            new_name="Conversation",
         ),
     ]

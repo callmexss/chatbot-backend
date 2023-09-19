@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('chat', '0002_add_message_type_to_message'),
+        ("chat", "0002_add_message_type_to_message"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='message',
-            name='message_type',
-            field=models.CharField(choices=[('user', 'User'), ('bot', 'Bot')], max_length=4),
+            model_name="message",
+            name="message_type",
+            field=models.CharField(
+                choices=[("user", "User"), ("bot", "Bot")], max_length=4
+            ),
         ),
     ]

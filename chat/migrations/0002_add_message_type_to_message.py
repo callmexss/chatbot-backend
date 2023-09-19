@@ -4,26 +4,24 @@ from django.db import migrations, models
 
 
 def set_default_message_type(apps, schema_editor):
-    Message = apps.get_model('chat', 'Message')
+    Message = apps.get_model("chat", "Message")
     for message in Message.objects.all():
-        message.message_type = 'bot'  # or any default you want
+        message.message_type = "bot"  # or any default you want
         message.save()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('chat', '0001_initial'),
+        ("chat", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='message_type',
+            model_name="message",
+            name="message_type",
             field=models.CharField(
-                max_length=4,
-                choices=[('user', 'User'), ('bot', 'Bot')],
-                default='bot'
+                max_length=4, choices=[("user", "User"), ("bot", "Bot")], default="bot"
             ),
         ),
         migrations.RunPython(set_default_message_type),

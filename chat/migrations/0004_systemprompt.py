@@ -6,16 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('chat', '0003_alter_message_message_type'),
+        ("chat", "0003_alter_message_message_type"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='SystemPrompt',
+            name="SystemPrompt",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=4000)),
-                ('content', models.TextField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=4000)),
+                ("content", models.TextField()),
             ],
         ),
     ]
