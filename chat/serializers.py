@@ -18,4 +18,4 @@ class SystemPromptSerializer(serializers.ModelSerializer):
 class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
-        fields = ["id", "name", "created_at"]
+        fields = ["id", "user", "name", "created_at"]

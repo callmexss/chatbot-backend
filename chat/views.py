@@ -158,8 +158,23 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         user = request.user
-        response = super().create(request, *args, **kwargs)
-        if response.status_code == status.HTTP_201_CREATED:
-            new_conversation = Conversation.objects.get(id=response.data["id"])
-            chat_manager.initialize_conversation(new_conversation.id, user)
-        return response
+
+        mutable_data = request.data.copy()
+        mutable_data["user"] = user.id
+
+        serializer = self.get_serializer(data=mutable_data)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+
+        new_conversation = Conversation.objects.get(id=serializer.data["id"])
+        chat_manager.initialize_conversation(new_conversation.id, user)
+
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
+
+    def perform_create(self, serializer):
+        serializer.save()
