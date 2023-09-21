@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "rest_framework",
     # local
     "chat",
+    "document",
 ]
 
 MIDDLEWARE = [
@@ -138,3 +139,10 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+FAISS_ROOT = MEDIA_ROOT / "faiss"
+
+for path in [MEDIA_ROOT, FAISS_ROOT]:
+    path.mkdir(exist_ok=True, parents=True)
