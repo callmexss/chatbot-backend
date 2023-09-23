@@ -19,7 +19,7 @@ from .serializers import (
 
 
 class ChatManager:
-    def __init__(self, memory_turns=14):
+    def __init__(self, memory_turns=8):
         self.assistant = basev2.ChatAssistant(memory_turns=memory_turns)
 
     def initialize_conversation(self, conversation_id, user):
@@ -93,6 +93,8 @@ class ChatManager:
         self.save_message(content, "user", conversation, tokens)
 
         completion_params = basev2.CompletionParameters(stream=True, model=model)
+        if tokens > 2500:
+            completion_params.model = "gpt-3.5-turbo-16k-0613"
         chat_completion = self.assistant.ask(
             self.assistant.q, system_prompt=system_prompt, params=completion_params
         )
