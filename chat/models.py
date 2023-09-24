@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User
 from django.db import models
 
+from document.models import Document
+
 # Create your models here.
 
 
@@ -25,6 +27,9 @@ class Message(models.Model):
         Conversation, on_delete=models.CASCADE, related_name="messages"
     )
     content = models.TextField()
+    context = models.TextField(blank=True)
+    system_prompt = models.TextField(blank=True)
+    documents = models.ManyToManyField(Document, related_name="chats", blank=True)
     tokens = models.PositiveIntegerField(default=0)
     message_type = models.CharField(max_length=4, choices=TYPE_CHOICES)
     timestamp = models.DateTimeField(auto_now_add=True)

@@ -1,6 +1,12 @@
+from typing import Optional
+
 from django.http import StreamingHttpResponse
 from gptbase import basev2
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.retrievers import MergerRetriever
+from langchain.vectorstores.faiss import FAISS
 from rest_framework import status, viewsets
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -10,12 +16,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import Conversation, Message, SystemPrompt
+from .models import Conversation, Document, Message, SystemPrompt
 from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     SystemPromptSerializer,
 )
+
+CONTEXT_CHAT_PROMPT = """Given the context below:
+
+{context}
+
+Answer user's question: {question}.
+
+If you don't know the answer, just say you don't know.
+Dont make up.
+"""
 
 
 class ChatManager:
@@ -39,14 +55,26 @@ class ChatManager:
         print(self.assistant.q)
 
     @staticmethod
-    def save_message(content, message_type, conversation, tokens=0):
+    def save_message(
+        content,
+        message_type,
+        conversation,
+        tokens=0,
+        system_prompt="",
+        context="",
+        documents=None,
+    ):
         message = Message(
             content=content,
             message_type=message_type,
             conversation=conversation,
             tokens=tokens,
+            system_prompt=system_prompt,
+            context=context,
         )
         message.save()
+        if documents:
+            message.documents.set(documents)
         return message
 
     def save_and_yield_original(self, gen, conversation, model):
@@ -105,6 +133,53 @@ class ChatManager:
 
         return StreamingHttpResponse(new_gen, content_type="text/plain")
 
+    def openai_doc_reply(
+        self,
+        content,
+        conversation,
+        model="gpt-3.5-turbo-0613",
+        documents: Optional[list[Document]] = None,
+        system_prompt="",
+    ):
+        li = []
+        for document in documents:
+            db_path = document.get_faiss_store()
+            db: FAISS = FAISS.load_local(db_path, OpenAIEmbeddings(chunk_size=16))
+            li.append(db.as_retriever())
+        lotr = MergerRetriever(li)
+        document_li = lotr.get_relevant_documents(content)
+        context_li = []
+        for i, doc in enumerate(document_li):
+            context_li.append(f"\n context {i}: \n{doc.page_content}\n---\n")
+        context = "\n".join(context_li)
+        new_content = CONTEXT_CHAT_PROMPT.format(question=content, context=context)
+        self.assistant.q.append(self.assistant.build_user_message(new_content))
+        tokens = basev2.num_tokens_from_messages(self.assistant.q, model)
+        self.save_message(
+            content,
+            "user",
+            conversation,
+            tokens,
+            system_prompt=system_prompt,
+            context=new_content,
+            documents=documents,
+        )
+
+        completion_params = basev2.CompletionParameters(stream=True, model=model)
+        if tokens > 2500:
+            completion_params.model = "gpt-3.5-turbo-16k-0613"
+        chat_completion = self.assistant.ask(
+            self.assistant.q, system_prompt=system_prompt, params=completion_params
+        )
+        self.assistant.q.pop()
+        self.assistant.q.append(self.assistant.build_user_message(new_content))
+
+        new_gen = self.save_and_yield_original(
+            basev2.get_chunks(chat_completion), conversation, model
+        )
+
+        return StreamingHttpResponse(new_gen, content_type="text/plain")
+
 
 DEFAULT_CONVERSATION_ID = 1
 chat_manager = ChatManager()
@@ -118,13 +193,15 @@ def echo_message(request):
 
 
 @api_view(["POST"])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def openai_message(request):
     user = request.user
     content: str = request.data.get("content")
+    model: str = request.data.get("model", "gpt-3.5-turbo-0613")
     system_prompt: str = request.data.get("system_prompt", "")
     conversation_id = request.data.get("conversation_id")
+    document_ids = request.data.get("document_ids", None)
 
     try:
         conversation = Conversation.objects.get(id=conversation_id)
@@ -133,7 +210,22 @@ def openai_message(request):
             content, user
         )
 
-    return chat_manager.openai_reply(content, conversation, system_prompt=system_prompt)
+    if document_ids:
+        documents = Document.objects.filter(id__in=document_ids)
+        return chat_manager.openai_doc_reply(
+            content,
+            conversation,
+            model,
+            documents,
+            system_prompt=system_prompt,
+        )
+    else:
+        return chat_manager.openai_reply(
+            content,
+            conversation,
+            model,
+            system_prompt=system_prompt,
+        )
 
 
 @api_view(["GET"])
