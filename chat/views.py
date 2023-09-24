@@ -31,6 +31,9 @@ Answer user's question: {question}.
 
 If you don't know the answer, just say you don't know.
 Dont make up.
+
+But if you know something relevant above content right,
+you can give an extra info with notification the user.
 """
 
 
@@ -172,7 +175,7 @@ class ChatManager:
             self.assistant.q, system_prompt=system_prompt, params=completion_params
         )
         self.assistant.q.pop()
-        self.assistant.q.append(self.assistant.build_user_message(new_content))
+        self.assistant.q.append(self.assistant.build_user_message(content))
 
         new_gen = self.save_and_yield_original(
             basev2.get_chunks(chat_completion), conversation, model
