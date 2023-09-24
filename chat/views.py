@@ -29,11 +29,9 @@ CONTEXT_CHAT_PROMPT = """Given the context below:
 
 Answer user's question: {question}.
 
-If you don't know the answer, just say you don't know.
-Dont make up.
-
-But if you know something relevant above content right,
-you can give an extra info with notification the user.
+If you don't know the answer,
+you can summary the context or ask questions
+as extra info with notification the user.
 """
 
 
@@ -153,7 +151,8 @@ class ChatManager:
         document_li = lotr.get_relevant_documents(content)
         context_li = []
         for i, doc in enumerate(document_li):
-            context_li.append(f"\n context {i}: \n{doc.page_content}\n---\n")
+            page_content = doc.page_content.replace("\r\n", " ")
+            context_li.append(f"\n context {i}: \n{page_content}\n---\n")
         context = "\n".join(context_li)
         new_content = CONTEXT_CHAT_PROMPT.format(question=content, context=context)
         self.assistant.q.append(self.assistant.build_user_message(new_content))

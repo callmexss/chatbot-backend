@@ -4,7 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from langchain.document_loaders import (
-    PDFMinerLoader,
+    PyPDFium2Loader,
     UnstructuredEPubLoader,
     UnstructuredHTMLLoader,
 )
@@ -16,7 +16,7 @@ from document.models import Document
 
 LOADER_DIC = {
     ".html": UnstructuredHTMLLoader,
-    ".pdf": PDFMinerLoader,
+    ".pdf": PyPDFium2Loader,
     ".epub": UnstructuredEPubLoader,
 }
 
@@ -29,7 +29,7 @@ def save_faiss(filename):
     try:
         path = Path(filename)
         loader = LOADER_DIC[path.suffix](path.as_posix())
-        splitter = RecursiveCharacterTextSplitter(chunk_size=2000)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
         docs = loader.load_and_split(splitter)
         print(f"total {len(docs)} chunks.")
         db = FAISS.from_documents(docs, OpenAIEmbeddings(chunk_size=16))

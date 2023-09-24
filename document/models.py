@@ -18,8 +18,8 @@ class Document(models.Model):
         # ... more types
     ]
 
-    filename = models.CharField(max_length=255, blank=True)
-    file = models.FileField(upload_to="documents/", blank=True)
+    filename = models.CharField(max_length=1024, blank=True)
+    file = models.FileField(upload_to="documents/", blank=True, max_length=1024)
     hash = models.CharField(max_length=64, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
