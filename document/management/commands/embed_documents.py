@@ -58,7 +58,7 @@ class Command(BaseCommand):
                 document.save()
 
                 self.stdout.write(
-                    self.style.SUCCESS(f"Successfully downloaded {document.filename}")
+                    self.style.SUCCESS(f"Successfully embedded {document.filename}")
                 )
             else:
                 self.stdout.write(
