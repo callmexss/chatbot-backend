@@ -53,8 +53,7 @@ class Command(BaseCommand):
                 if not document.filename:
                     document.filename = doc_path.name
                 document.file_size = document.file.size
-                faiss_store = save_faiss(settings.MEDIA_ROOT / document.file.name)
-                if faiss_store:
+                if faiss_store := save_faiss(settings.MEDIA_ROOT / document.file.name):
                     document.faiss_store = faiss_store.name
                 document.save()
 
