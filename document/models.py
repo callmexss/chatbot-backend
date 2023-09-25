@@ -49,6 +49,5 @@ class Document(models.Model):
 
 @receiver(pre_delete, sender=Document)
 def delete_file(sender, instance, **kwargs):
-    if instance.file:
-        if Path(instance.file.path).exists():
-            os.remove(instance.file.path)
+    if instance.file and Path(instance.file.path).exists():
+        os.remove(instance.file.path)
