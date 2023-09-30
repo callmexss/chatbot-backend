@@ -36,24 +36,34 @@ as extra info with notification the user.
 
 
 class ChatManager:
-    def __init__(self, memory_turns=8):
-        self.assistant = basev2.ChatAssistant(memory_turns=memory_turns)
+    def __init__(self):
+        self.assistants = {}
+        self.assistant = basev2.ChatAssistant(memory_turns=1)
+
+    def get_assistant(
+        self, user_id, conversation_id, memory_turns=6
+    ) -> basev2.Assistant:
+        key = (user_id, conversation_id)
+        if key not in self.assistants:
+            self.assistants[key] = basev2.ChatAssistant(memory_turns=memory_turns)
+        return self.assistants[key]
 
     def initialize_conversation(self, conversation_id, user):
+        assistant = self.get_assistant(user.id, conversation_id)
         conversation, _ = Conversation.objects.get_or_create(
             id=conversation_id, user=user
         )
         messages = conversation.messages.all().order_by("timestamp")
-        max_len = self.assistant.q.maxlen
-        self.assistant.q.clear()
+        max_len = assistant.q.maxlen
+        assistant.q.clear()
         print("initialize chat assistant")
         start_idx = max(0, len(messages) - max_len)
         for message in messages[start_idx:]:
             role = "user" if message.message_type == "user" else "assistant"
-            self.assistant.q.append(
-                self.assistant.build_message(role=role, message=message.content)
+            assistant.q.append(
+                assistant.build_message(role=role, message=message.content)
             )
-        print(self.assistant.q)
+        print(assistant.q)
 
     @staticmethod
     def save_message(
@@ -79,6 +89,7 @@ class ChatManager:
         return message
 
     def save_and_yield_original(self, gen, conversation, model):
+        assistant = self.get_assistant(conversation.user.id, conversation.id)
         saved = []
         yield f"{conversation.id}|||".encode()
         for item in gen:
@@ -87,7 +98,7 @@ class ChatManager:
         message = "".join(saved)
         tokens = basev2.count_tokens(message, model)
         self.save_message(message, "bot", conversation, tokens)
-        self.assistant.q.append(self.assistant.build_assistant_message(message))
+        assistant.q.append(assistant.build_assistant_message(message))
 
     def create_and_name_conversation(self, first_sentence, user):
         system_prompt = (
@@ -117,8 +128,9 @@ class ChatManager:
     def openai_reply(
         self, content, conversation, model="gpt-3.5-turbo-0613", system_prompt=""
     ):
-        self.assistant.q.append(self.assistant.build_user_message(content))
-        tokens = basev2.num_tokens_from_messages(self.assistant.q, model)
+        assistant = self.get_assistant(conversation.user.id, conversation.id)
+        assistant.q.append(assistant.build_user_message(content))
+        tokens = basev2.num_tokens_from_messages(assistant.q, model)
         self.save_message(
             content, "user", conversation, tokens, system_prompt=system_prompt
         )
@@ -126,8 +138,8 @@ class ChatManager:
         completion_params = basev2.CompletionParameters(stream=True, model=model)
         if tokens > 2500:
             completion_params.model = "gpt-3.5-turbo-16k-0613"
-        chat_completion = self.assistant.ask(
-            self.assistant.q, system_prompt=system_prompt, params=completion_params
+        chat_completion = assistant.ask(
+            assistant.q, system_prompt=system_prompt, params=completion_params
         )
 
         new_gen = self.save_and_yield_original(
@@ -157,8 +169,11 @@ class ChatManager:
             context_li.append(f"\n context {i}: \n{page_content}\n---\n")
         context = "\n".join(context_li)
         new_content = CONTEXT_CHAT_PROMPT.format(question=content, context=context)
-        self.assistant.q.append(self.assistant.build_user_message(new_content))
-        tokens = basev2.num_tokens_from_messages(self.assistant.q, model)
+        assistant: basev2.Assistant = self.get_assistant(
+            conversation.user.id, conversation.id
+        )
+        assistant.q.append(assistant.build_user_message(new_content))
+        tokens = basev2.num_tokens_from_messages(assistant.q, model)
         self.save_message(
             content,
             "user",
@@ -172,11 +187,11 @@ class ChatManager:
         completion_params = basev2.CompletionParameters(stream=True, model=model)
         if ("3.5" in model and tokens > 2500) or ("4" in model and tokens > 6000):
             completion_params.model = "gpt-3.5-turbo-16k-0613"
-        chat_completion = self.assistant.ask(
-            self.assistant.q, system_prompt=system_prompt, params=completion_params
+        chat_completion = assistant.ask(
+            assistant.q, system_prompt=system_prompt, params=completion_params
         )
-        self.assistant.q.pop()
-        self.assistant.q.append(self.assistant.build_user_message(content))
+        assistant.q.pop()
+        assistant.q.append(assistant.build_user_message(content))
 
         new_gen = self.save_and_yield_original(
             basev2.get_chunks(chat_completion), conversation, model
