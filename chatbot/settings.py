@@ -39,6 +39,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # 3rd
     "rest_framework",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "rest_auth.registration",
+    "rest_framework.authtoken",
     # local
     "chat",
     "document",
@@ -54,6 +60,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # 3rd
     "corsheaders.middleware.CorsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -140,6 +147,11 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+AUTHENTICATION_BACKENDS = (
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+)
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"

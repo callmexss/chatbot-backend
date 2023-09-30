@@ -119,7 +119,9 @@ class ChatManager:
     ):
         self.assistant.q.append(self.assistant.build_user_message(content))
         tokens = basev2.num_tokens_from_messages(self.assistant.q, model)
-        self.save_message(content, "user", conversation, tokens)
+        self.save_message(
+            content, "user", conversation, tokens, system_prompt=system_prompt
+        )
 
         completion_params = basev2.CompletionParameters(stream=True, model=model)
         if tokens > 2500:
@@ -146,7 +148,7 @@ class ChatManager:
         for document in documents:
             db_path = document.get_faiss_store()
             db: FAISS = FAISS.load_local(db_path, OpenAIEmbeddings(chunk_size=16))
-            li.append(db.as_retriever())
+            li.append(db.as_retriever(search_kwargs={"k": 8}))
         lotr = MergerRetriever(li)
         document_li = lotr.get_relevant_documents(content)
         context_li = []
@@ -168,7 +170,7 @@ class ChatManager:
         )
 
         completion_params = basev2.CompletionParameters(stream=True, model=model)
-        if tokens > 2500:
+        if ("3.5" in model and tokens > 2500) or ("4" in model and tokens > 6000):
             completion_params.model = "gpt-3.5-turbo-16k-0613"
         chat_completion = self.assistant.ask(
             self.assistant.q, system_prompt=system_prompt, params=completion_params
