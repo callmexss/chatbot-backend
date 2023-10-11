@@ -3,7 +3,7 @@ import environ
 from .base import *  # noqa
 
 env = environ.Env()
-environ.Env.read_env()
+environ.Env.read_env(BASE_DIR / ".env")  # noqa
 
 
 SECRET_KEY = env("SECRET_KEY")
