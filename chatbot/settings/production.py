@@ -11,6 +11,8 @@ DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+CSRF_TRUSTED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ORIGINS_WHITELIST = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 DATABASES = {
     "default": {
