@@ -2,9 +2,11 @@ from typing import Optional
 
 from django.http import StreamingHttpResponse
 from gptbase import basev2
+from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.retrievers import MergerRetriever
 from langchain.vectorstores.faiss import FAISS
+from langchain.retrievers.multi_query import MultiQueryRetriever
 from rest_framework import status, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -32,6 +34,13 @@ Answer user's question: {question}.
 If you don't know the answer,
 you can summary the context or ask questions
 as extra info with notification the user.
+"""
+
+CONTEXT_CHAT_PROMPT = """Using below context:
+
+'''\n{context}\n'''
+
+Answer user question: {question}
 """
 
 
@@ -135,9 +144,13 @@ class ChatManager:
             content, "user", conversation, tokens, system_prompt=system_prompt
         )
 
+        # model = 'gpt-4-0613'
         completion_params = basev2.CompletionParameters(stream=True, model=model)
-        if tokens > 2500:
+        if ("3.5" in model and tokens > 2500) or ("4" in model and tokens > 6000):
             completion_params.model = "gpt-3.5-turbo-16k-0613"
+        completion_params = basev2.CompletionParameters(stream=True, model=model)
+        # if tokens > 2500:
+        #     completion_params.model = "gpt-3.5-turbo-16k-0613"
         chat_completion = assistant.ask(
             assistant.q, system_prompt=system_prompt, params=completion_params
         )
@@ -156,21 +169,25 @@ class ChatManager:
         documents: Optional[list[Document]] = None,
         system_prompt="",
     ):
+        llm = ChatOpenAI(temperature=0)
         li = []
         for document in documents:
             db_path = document.get_faiss_store()
             db: FAISS = FAISS.load_local(db_path, OpenAIEmbeddings(chunk_size=16))
-            li.append(db.as_retriever(search_kwargs={"k": 8}))
+            retriever_from_llm = MultiQueryRetriever.from_llm(
+                retriever=db.as_retriever(search_kwargs={"k": 3}), llm=llm
+            )
+            li.append(retriever_from_llm)
         lotr = MergerRetriever(li)
         document_li = lotr.get_relevant_documents(content)
         context_li = []
         for i, doc in enumerate(document_li):
             page_content = doc.page_content.replace("\r\n", " ")
             context_li.append(f"\n context {i}: \n{page_content}\n---\n")
-        context = "\n".join(context_li)
+        context = "\n".join(context_li[:4])
         new_content = CONTEXT_CHAT_PROMPT.format(question=content, context=context)
         assistant: basev2.Assistant = self.get_assistant(
-            conversation.user.id, conversation.id
+            conversation.user.id, conversation.id, memory_turns=3,
         )
         assistant.q.append(assistant.build_user_message(new_content))
         tokens = basev2.num_tokens_from_messages(assistant.q, model)
@@ -184,10 +201,11 @@ class ChatManager:
             documents=documents,
         )
 
+        # model = 'gpt-4'
         completion_params = basev2.CompletionParameters(stream=True, model=model)
         if ("3.5" in model and tokens > 2500) or ("4" in model and tokens > 6000):
             completion_params.model = "gpt-3.5-turbo-16k-0613"
-        chat_completion = assistant.ask(
+        chat_completion = self.assistant.ask(  # use only one turn
             assistant.q, system_prompt=system_prompt, params=completion_params
         )
         assistant.q.pop()

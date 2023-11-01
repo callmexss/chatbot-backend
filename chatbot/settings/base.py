@@ -110,7 +110,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/chatbot/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
@@ -131,7 +131,7 @@ AUTHENTICATION_BACKENDS = (
 )
 
 MEDIA_ROOT = BASE_DIR / "media"
-MEDIA_URL = "/media/"
+MEDIA_URL = "/chatbot/media/"
 FAISS_ROOT = MEDIA_ROOT / "faiss"
 
 for path in [MEDIA_ROOT, FAISS_ROOT]:

@@ -27,12 +27,12 @@ class GoogleLogin(SocialLoginView):
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/", include("chat.urls")),
-    path("api/", include("document.urls")),
-    path("api/v1/google/login/", GoogleLogin.as_view(), name="google_login"),
+    path("chatbot/admin/", admin.site.urls),
+    path("chatbot/api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("chatbot/api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("chatbot/api/", include("chat.urls")),
+    path("chatbot/api/", include("document.urls")),
+    path("chatbot/api/v1/google/login/", GoogleLogin.as_view(), name="google_login"),
 ]
 
 if settings.DEBUG:
